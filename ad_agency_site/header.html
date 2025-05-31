@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="uk">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #fff;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            padding: 20px 60px;
+            background-color: white;
+            border-bottom: 1px solid #ccc;
+            justify-content: space-between;
+        }
+
+        .logo {
+            font-weight: bold;
+            font-size: 22px;
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        nav {
+            flex: 2;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            padding-left: 250px;
+        }
+
+        nav a {
+            text-decoration: none;
+            color: black;
+            font-size: 18px;
+        }
+
+        .register-btn {
+            flex: 1;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .register-btn button {
+            padding: 10px 20px;
+            background-color: #0095e9;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            background-color: #0095e9;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            background-color: #007acc;
+        }
+    </style>
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <a href="index.php" class="logo">Course Agency</a>
+        <nav>
+            <a href="clients.php">Клієнти</a>
+            <a href="services.php">Послуги</a>
+            <a href="about-us.php">Про нас</a>
+            <a href="reviews.php">Відгуки</a>
+            <a href="contacts.php">Контакти</a>
+        </nav>
+        <div class="register-btn">
+            <?php if (isset($_SESSION['user_id'])): ?>
+            <a href="profile.php" class="btn">Профіль</a>
+            <?php else: ?>
+            <a href="register.php" class="btn">Реєстрація</a>
+            <?php endif; ?>
+        </div>
+    </header>
+
+</body>
+
+</html>
