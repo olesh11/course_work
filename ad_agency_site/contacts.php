@@ -4,7 +4,7 @@ session_start();
 $role = $_SESSION['user_role'] ?? 'guest';
 $connection = getConnection($role);
 
-$searchTerm = $_GET['search'] ?? '';
+$searchTerm = trim($_GET['search'] ?? '');
 $sql = "SELECT * FROM Employees";
 if (!empty($searchTerm)) {
     $searchTerm = "%" . $connection->real_escape_string($searchTerm) . "%";
@@ -58,6 +58,7 @@ if (!$result) {
             font-size: 15px;
             border: 1px solid #ccc;
             border-radius: 6px;
+            width: 250px;
         }
 
         .search-btn,
@@ -148,24 +149,6 @@ if (!$result) {
         .employee-email {
             font-size: 14px;
             color: #555;
-        }
-
-        @media (max-width: 768px) {
-            .employee-entry {
-                width: 100%;
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .employee-photo,
-            .no-photo {
-                margin-right: 0;
-                margin-bottom: 15px;
-            }
-
-            .employee-info {
-                align-items: center;
-            }
         }
 
         a.employee-entry {

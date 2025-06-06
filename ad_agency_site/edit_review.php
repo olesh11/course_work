@@ -2,7 +2,6 @@
 require_once 'connection.php';
 session_start();
 
-// Перевірка ролі та авторизації
 if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'registered') {
     die("Доступ заборонено.");
 }
@@ -16,7 +15,6 @@ if (!$review_id) {
     die("Не вказано ID відгуку.");
 }
 
-// Перевірка, чи цей відгук належить користувачу
 $stmt = $connection->prepare("SELECT review_content FROM Reviews WHERE review_id = ? AND user_id = ?");
 $stmt->bind_param("ii", $review_id, $user_id);
 $stmt->execute();
@@ -28,7 +26,6 @@ if ($result->num_rows === 0) {
 
 $review = $result->fetch_assoc();
 
-// Оновлення відгуку
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update'])) {
     $content = trim($_POST['review_content']);
     if ($content === '') {
@@ -47,7 +44,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update'])) {
     }
 }
 
-// Видалення відгуку
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete'])) {
     $delete_sql = "DELETE FROM Reviews WHERE review_id = ? AND user_id = ?";
     $stmt = $connection->prepare($delete_sql);

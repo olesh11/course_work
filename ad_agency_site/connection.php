@@ -5,9 +5,6 @@ function getConnection($userRole = 'guest') {
     if ($userRole === 'registered') {
         $username = "registered_user";
         $password = "userpass";
-    } elseif ($userRole === 'admin') {
-        $username = "admin_user";
-        $password = "adminpass";
     } else {
         $username = "guest_user";
         $password = "guestpass";

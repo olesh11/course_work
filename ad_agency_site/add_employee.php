@@ -3,28 +3,56 @@ require_once 'connection.php';
 session_start();
 
 $connection = getConnection($_SESSION['user_role'] ?? 'guest');
+$error_message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $firstName = $_POST['first_name'] ?? '';
-    $lastName = $_POST['last_name'] ?? '';
-    $position = $_POST['position'] ?? '';
-    $email = $_POST['email'] ?? '';
-    $photo = $_POST['photo'] ?? '';
+    $firstName = trim($_POST['first_name'] ?? '');
+    $lastName = trim($_POST['last_name'] ?? '');
+    $position = trim($_POST['position'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $photo_path = '';
 
-    $sql = "INSERT INTO employees (first_name, last_name, position, employee_email, photo)
-            VALUES (?, ?, ?, ?, ?)";
-    $stmt = $connection->prepare($sql);
-    $stmt->bind_param("sssss", $firstName, $lastName, $position, $email, $photo);
-
-    if ($stmt->execute()) {
-        header('Location: contacts.php');
-        exit;
+    if ($firstName === '' || $lastName === '' || $position === '' || $email === '') {
+        $error_message = "Всі поля, окрім фото, мають бути заповнені.";
     } else {
-        echo "Помилка: " . $stmt->error;
+        if (!empty($_FILES['photo']['name']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
+            $upload_dir = 'uploads/';
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0755, true);
+            }
+
+            $tmp_name = $_FILES['photo']['tmp_name'];
+            $ext = pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION);
+            $new_filename = uniqid('employee_', true) . '.' . $ext;
+            $target_path = $upload_dir . $new_filename;
+
+            if (move_uploaded_file($tmp_name, $target_path)) {
+                $photo_path = $target_path;
+            } else {
+                $error_message = "Не вдалося завантажити файл.";
+            }
+        }
+
+        if ($error_message === '') {
+            $sql = "INSERT INTO employees (first_name, last_name, position, employee_email, photo)
+                    VALUES (?, ?, ?, ?, ?)";
+            $stmt = $connection->prepare($sql);
+            if ($stmt) {
+                $stmt->bind_param("sssss", $firstName, $lastName, $position, $email, $photo_path);
+                if ($stmt->execute()) {
+                    header('Location: contacts.php');
+                    exit;
+                } else {
+                    $error_message = "Помилка виконання запиту: " . $stmt->error;
+                }
+                $stmt->close();
+            } else {
+                $error_message = "Помилка підготовки запиту: " . $connection->error;
+            }
+        }
     }
 }
 ?>
-
 
 <!DOCTYPE html>
 <html lang="uk">
@@ -57,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             padding: 30px 40px;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            max-width: 450px;
+            max-width: 480px;
             width: 100%;
             box-sizing: border-box;
         }
@@ -76,7 +104,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         input[type="text"],
-        input[type="email"] {
+        input[type="email"],
+        input[type="file"] {
             width: 100%;
             padding: 10px 12px;
             font-size: 14px;
@@ -86,8 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             transition: border-color 0.3s ease;
         }
 
-        input[type="text"]:focus,
-        input[type="email"]:focus {
+        input:focus {
             border-color: #007acc;
             outline: none;
         }
@@ -126,14 +154,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background-color: #c0c0c0;
         }
 
-        @media (max-width: 500px) {
-            main {
-                padding: 20px 10px;
-            }
-
-            form {
-                padding: 20px;
-            }
+        .error-message {
+            background-color: #ffe5e5;
+            color: #cc0000;
+            padding: 10px 14px;
+            border: 1.5px solid #ff9999;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            text-align: center;
         }
     </style>
 </head>
@@ -141,27 +170,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
     <?php include 'header.html'; ?>
     <main>
-        <form method="post" novalidate>
+        <form method="post" enctype="multipart/form-data" novalidate>
             <h1>Додати нового співробітника</h1>
+
+            <?php if ($error_message !== ''): ?>
+                <div class="error-message"><?= htmlspecialchars($error_message) ?></div>
+            <?php endif; ?>
+
             <label>Ім'я:
-                <input type="text" name="first_name" required>
+                <input type="text" name="first_name" required value="<?= htmlspecialchars($_POST['first_name'] ?? '') ?>">
             </label>
             <label>Прізвище:
-                <input type="text" name="last_name" required>
+                <input type="text" name="last_name" required value="<?= htmlspecialchars($_POST['last_name'] ?? '') ?>">
             </label>
             <label>Посада:
-                <input type="text" name="position" required>
+                <input type="text" name="position" required value="<?= htmlspecialchars($_POST['position'] ?? '') ?>">
             </label>
             <label>Email:
-                <input type="email" name="email" required>
+                <input type="email" name="email" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
             </label>
-            <label>Фото (URL):
-                <input type="text" name="photo">
+            <label>Фото:
+                <input type="file" name="photo" accept="image/*">
             </label>
             <button type="submit">Додати</button>
             <a href="contacts.php" class="back-btn">Повернутися назад</a>
         </form>
-
     </main>
     <?php include 'footer.html'; ?>
 </body>

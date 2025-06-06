@@ -9,45 +9,86 @@ if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'registered') {
 $connection = getConnection('registered');
 
 $adspace_id = $_GET['id'] ?? null;
+$stmt = $connection->prepare("SELECT * FROM Adspace WHERE adspace_id=?");
+$stmt->bind_param("i", $adspace_id);
+$stmt->execute();
+$result = $stmt->get_result();
+$adspace = $result->fetch_assoc();
 
 if (!$adspace_id) {
     die("Не вказано ID послуги.");
 }
 
-// Оновлення
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update'])) {
-    $ad_type = $_POST['ad_type'];
-    $ad_description = $_POST['ad_description'];
-    $ad_price = $_POST['ad_price'];
-    $photo = $_POST['photo'];
+$error = '';
 
-    $sql = "UPDATE Adspace SET ad_type=?, ad_description=?, ad_price=?, photo=? WHERE adspace_id=?";
-    $stmt = $connection->prepare($sql);
-    $stmt->bind_param("ssdsi", $ad_type, $ad_description, $ad_price, $photo, $adspace_id);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    if ($stmt->execute()) {
-        header("Location: services.php");
-        exit;
-    } else {
-        echo "Помилка оновлення: " . $stmt->error;
+    if (isset($_POST['delete'])) {
+        $sql = "DELETE FROM Adspace WHERE adspace_id=?";
+        $stmt = $connection->prepare($sql);
+        $stmt->bind_param("i", $adspace_id);
+
+        if ($stmt->execute()) {
+            header("Location: services.php");
+            exit;
+        } else {
+            echo "Помилка видалення: " . $stmt->error;
+        }
+    }
+
+    if (isset($_POST['update'])) {
+        $ad_type = trim($_POST['ad_type'] ?? '');
+        $ad_description = trim($_POST['ad_description'] ?? '');
+        $ad_price = trim($_POST['ad_price'] ?? '');
+
+        if ($ad_type === '' || $ad_description === '' || $ad_price === '') {
+            $error = "Будь ласка, заповніть усі обов’язкові поля.";
+        } elseif (!is_numeric($ad_price) || floatval($ad_price) < 0) {
+            $error = "Ціна повинна бути додатнім числом.";
+        } else {
+            $photo = $adspace['photo'];
+
+            if (isset($_FILES['photo_file']) && $_FILES['photo_file']['error'] !== UPLOAD_ERR_NO_FILE) {
+                $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+                $fileTmpPath = $_FILES['photo_file']['tmp_name'];
+                $fileType = mime_content_type($fileTmpPath);
+
+                if (!in_array($fileType, $allowedTypes)) {
+                    $error = "Неприпустимий формат файлу. Дозволені: JPG, PNG, GIF.";
+                } else {
+                    $uploadDir = __DIR__ . '/uploads/';
+                    if (!is_dir($uploadDir)) {
+                        mkdir($uploadDir, 0755, true);
+                    }
+
+                    $fileName = basename($_FILES['photo_file']['name']);
+                    $fileName = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', $fileName);
+                    $newFilePath = $uploadDir . time() . '_' . $fileName;
+
+                    if (move_uploaded_file($fileTmpPath, $newFilePath)) {
+                        $photo = 'uploads/' . basename($newFilePath);
+                    } else {
+                        $error = "Помилка завантаження файлу.";
+                    }
+                }
+            }
+        }
+
+        if ($error === '') {
+            $sql = "UPDATE Adspace SET ad_type=?, ad_description=?, ad_price=?, photo=? WHERE adspace_id=?";
+            $stmt = $connection->prepare($sql);
+            $stmt->bind_param("ssdsi", $ad_type, $ad_description, $ad_price, $photo, $adspace_id);
+
+            if ($stmt->execute()) {
+                header("Location: services.php");
+                exit;
+            } else {
+                $error = "Помилка оновлення: " . $stmt->error;
+            }
+        }
     }
 }
 
-// Видалення
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete'])) {
-    $sql = "DELETE FROM Adspace WHERE adspace_id=?";
-    $stmt = $connection->prepare($sql);
-    $stmt->bind_param("i", $adspace_id);
-
-    if ($stmt->execute()) {
-        header("Location: services.php");
-        exit;
-    } else {
-        echo "Помилка видалення: " . $stmt->error;
-    }
-}
-
-// Отримати дані послуги
 $stmt = $connection->prepare("SELECT * FROM Adspace WHERE adspace_id=?");
 $stmt->bind_param("i", $adspace_id);
 $stmt->execute();
@@ -71,7 +112,6 @@ if (!$adspace) {
             background-color: #f5f7fa;
             margin: 0;
             padding: 0 20px 60px;
-            /* Місце для footer */
             color: #333;
             display: flex;
             flex-direction: column;
@@ -183,14 +223,11 @@ if (!$adspace) {
             background-color: #005fa3;
         }
 
-        @media (max-width: 600px) {
-            .edit-container {
-                padding: 20px 20px;
-            }
-
-            button {
-                font-size: 14px;
-            }
+        .error-message {
+            color: red;
+            font-weight: 600;
+            margin-bottom: 15px;
+            text-align: center;
         }
     </style>
 </head>
@@ -202,18 +239,28 @@ if (!$adspace) {
     <main>
         <div class="edit-container">
             <h1>Редагування послуги</h1>
-            <form method="post">
+
+            <?php if ($error): ?>
+                <div class="error-message"><?= htmlspecialchars($error) ?></div>
+            <?php endif; ?>
+
+            <form method="post" enctype="multipart/form-data">
                 <label for="ad_type">Тип реклами:</label>
-                <input id="ad_type" type="text" name="ad_type" value="<?= htmlspecialchars($adspace['ad_type']) ?>" required />
+                <input id="ad_type" type="text" name="ad_type" value="<?= htmlspecialchars($_POST['ad_type'] ?? $adspace['ad_type']) ?>" required />
 
                 <label for="ad_description">Опис реклами:</label>
-                <textarea id="ad_description" name="ad_description" rows="4" required><?= htmlspecialchars($adspace['ad_description']) ?></textarea>
+                <textarea id="ad_description" name="ad_description" rows="4" required><?= htmlspecialchars($_POST['ad_description'] ?? $adspace['ad_description']) ?></textarea>
 
                 <label for="ad_price">Ціна (грн/міс):</label>
-                <input id="ad_price" type="number" name="ad_price" step="0.01" min="0" value="<?= htmlspecialchars($adspace['ad_price']) ?>" required />
+                <input id="ad_price" type="number" name="ad_price" step="0.01" min="0" value="<?= htmlspecialchars($_POST['ad_price'] ?? $adspace['ad_price']) ?>" required />
 
-                <label for="photo">Фото (URL):</label>
-                <input id="photo" type="text" name="photo" value="<?= htmlspecialchars($adspace['photo']) ?>" />
+                <label for="photo_file">Фото (файл):</label>
+                <input id="photo_file" type="file" name="photo_file" accept="image/*" />
+
+                <?php if (!empty($adspace['photo'])): ?>
+                    <p>Поточне фото:</p>
+                    <img src="<?= htmlspecialchars($adspace['photo']) ?>" alt="Фото послуги" style="max-width: 100%; height: auto; margin-bottom: 20px; border-radius: 8px;">
+                <?php endif; ?>
 
                 <div class="buttons">
                     <button type="submit" name="update">Оновити</button>

@@ -3,26 +3,57 @@ require_once 'connection.php';
 session_start();
 
 $connection = getConnection($_SESSION['user_role'] ?? 'guest');
+$error_message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $ad_type = $_POST['ad_type'] ?? '';
-    $ad_description = $_POST['ad_description'] ?? '';
-    $ad_price = $_POST['ad_price'] ?? 0;
-    $photo = $_POST['photo'] ?? '';
+    $ad_type = trim($_POST['ad_type'] ?? '');
+    $ad_description = trim($_POST['ad_description'] ?? '');
+    $ad_price = floatval($_POST['ad_price'] ?? 0);
+    $photo_path = '';
 
-    $sql = "INSERT INTO Adspace (ad_type, ad_description, ad_price, photo)
-            VALUES (?, ?, ?, ?)";
-    $stmt = $connection->prepare($sql);
-    $stmt->bind_param("ssds", $ad_type, $ad_description, $ad_price, $photo);
-
-    if ($stmt->execute()) {
-        header('Location: services.php');
-        exit;
+    if ($ad_type === '' || $ad_description === '') {
+        $error_message = "Тип реклами та опис не можуть бути порожніми.";
+    } elseif ($ad_price <= 0) {
+        $error_message = "Ціна повинна бути більшою за нуль.";
     } else {
-        echo "Помилка: " . $stmt->error;
+        $upload_dir = 'uploads/';
+        if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
+            $tmp_name = $_FILES['photo']['tmp_name'];
+            $original_name = basename($_FILES['photo']['name']);
+            $target_file = $upload_dir . uniqid() . '_' . $original_name;
+
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0755, true);
+            }
+
+            if (move_uploaded_file($tmp_name, $target_file)) {
+                $photo_path = $target_file;
+            } else {
+                $error_message = "Не вдалося завантажити файл.";
+            }
+        }
+
+        if (empty($error_message)) {
+            $sql = "INSERT INTO Adspace (ad_type, ad_description, ad_price, photo)
+                    VALUES (?, ?, ?, ?)";
+            $stmt = $connection->prepare($sql);
+            if ($stmt) {
+                $stmt->bind_param("ssds", $ad_type, $ad_description, $ad_price, $photo_path);
+                if ($stmt->execute()) {
+                    header('Location: services.php');
+                    exit;
+                } else {
+                    $error_message = "Помилка: " . $stmt->error;
+                }
+                $stmt->close();
+            } else {
+                $error_message = "Помилка підготовки запиту: " . $connection->error;
+            }
+        }
     }
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="uk">
@@ -36,7 +67,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background-color: #f5f7fa;
             margin: 0;
             padding: 0 20px 60px;
-            /* Залишаємо місце під footer */
             color: #333;
             display: flex;
             flex-direction: column;
@@ -76,6 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         input[type="text"],
         input[type="number"],
+        input[type="file"],
         textarea {
             width: 100%;
             padding: 10px 12px;
@@ -89,6 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         input[type="text"]:focus,
         input[type="number"]:focus,
+        input[type="file"]:focus,
         textarea:focus {
             border-color: #007acc;
             outline: none;
@@ -111,16 +143,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background-color: #005fa3;
         }
 
-        @media (max-width: 500px) {
-            body {
-                padding: 0 10px 60px;
-            }
-
-            form {
-                padding: 20px;
-            }
-        }
-
         .back-btn {
             display: block;
             margin: 30px auto 0 auto;
@@ -137,6 +159,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .back-btn:hover {
             background-color: #c0c0c0;
         }
+
+        .error-message {
+            background-color: #ffe5e5;
+            color: #cc0000;
+            padding: 10px 14px;
+            border: 1.5px solid #ff9999;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
     </style>
 </head>
 
@@ -145,8 +177,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php include 'header.html'; ?>
 
     <main>
-        <form method="post" novalidate>
+        <form method="post" enctype="multipart/form-data" novalidate>
             <h1>Додати рекламне місце</h1>
+            <?php if (!empty($error_message)): ?>
+                <div class="error-message"><?= htmlspecialchars($error_message) ?></div>
+            <?php endif; ?>
             <label>Тип реклами:
                 <input type="text" name="ad_type" required>
             </label>
@@ -156,8 +191,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <label>Ціна:
                 <input type="number" step="0.01" name="ad_price" required>
             </label>
-            <label>Фото (URL або шлях):
-                <input type="text" name="photo">
+            <label>Фото:
+                <input type="file" name="photo" accept="image/*">
             </label>
             <button type="submit">Додати</button>
 

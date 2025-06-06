@@ -26,6 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($adspace_id === 0) {
         $error_message = "Будь ласка, оберіть рекламне місце.";
+    } elseif ($message === '') {
+        $error_message = "Повідомлення не може бути порожнім.";
     } else {
         $sql = "INSERT INTO Bookings (user_id, adspace_id, message) VALUES (?, ?, ?)";
         $stmt = $connection->prepare($sql);
@@ -46,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $connection->close();
 ?>
+
 
 <!DOCTYPE html>
 <html lang="uk">
@@ -138,16 +141,6 @@ $connection->close();
             text-align: center;
         }
 
-        @media (max-width: 500px) {
-            main {
-                padding: 20px 10px;
-            }
-
-            form {
-                padding: 20px;
-            }
-        }
-
         .back-btn {
             display: block;
             margin: 30px auto 0 auto;
@@ -191,7 +184,7 @@ $connection->close();
                 </select>
             </label>
 
-            <label for="message">Повідомлення (необов’язково):
+            <label for="message">Повідомлення:
                 <textarea id="message" name="message" rows="4" placeholder="Ваше повідомлення..."></textarea>
             </label>
 

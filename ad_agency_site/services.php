@@ -4,8 +4,22 @@ session_start();
 $role = $_SESSION['user_role'] ?? 'guest';
 $connection = getConnection($role);
 
-$searchTerm = $_GET['search'] ?? '';
+$searchTerm = trim($_GET['search'] ?? '');
 $sql = "SELECT * FROM Adspace";
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['increase_price'])) {
+    $percent_num = $_POST['percent'] ?? '';
+
+    if (is_numeric($percent_num)) {
+        $multiplier = 1 + ($percent_num / 100);
+        $updateQuery = "UPDATE Adspace SET ad_price = ad_price * $multiplier";
+        if (mysqli_query($connection, $updateQuery)) {
+            header("Location: " . $_SERVER['REQUEST_URI']);
+            exit;
+        }
+    }
+}
+
 if (!empty($searchTerm)) {
     $searchTerm = "%" . $connection->real_escape_string($searchTerm) . "%";
     $sql .= " WHERE ad_type LIKE '$searchTerm' OR ad_description LIKE '$searchTerm'";
@@ -59,7 +73,8 @@ if (!$result) {
             display: inline-block;
         }
 
-        .search-input {
+        .search-input,
+        .percent-input {
             padding: 5px;
             font-size: 14px;
             border-radius: 5px;
@@ -68,7 +83,8 @@ if (!$result) {
         }
 
         .search-btn,
-        .add-btn {
+        .add-btn,
+        .price-btn {
             padding: 6px 14px;
             font-size: 14px;
             cursor: pointer;
@@ -105,7 +121,6 @@ if (!$result) {
             display: flex;
             flex-direction: column;
             height: 420px;
-            /* трохи більше висоти для фото + тексту */
         }
 
         .adspace-card:hover {
@@ -154,16 +169,19 @@ if (!$result) {
     <h1>Наші рекламні послуги</h1>
 
     <div class="controls">
-        <!-- Перший рядок: пошук -->
         <div class="controls-row">
             <form method="get" action="" style="display: flex; gap: 10px;">
                 <input class="search-input" type="text" name="search" placeholder="Пошук за типом або описом"
                     value="<?= htmlspecialchars($_GET['search'] ?? '') ?>">
                 <button class="search-btn" type="submit">Пошук</button>
             </form>
+            <form method="post" style="display: inline;">
+                <input class="percent-input" type="number" name="percent" placeholder="Введіть відсоток"
+                    value="<?= htmlspecialchars($_POST['percent'] ?? '') ?>">
+                <button class="price-btn" type="submit" name="increase_price">Збільшити ціну</button>
+            </form>
         </div>
 
-        <!-- Другий рядок: сортування + додавання -->
         <div class="controls-row" style="margin-top: 10px; display: flex; gap: 10px; align-items: center;">
             <form method="get" action="" style="display: flex;">
                 <?php if (!empty($_GET['search'])): ?>
@@ -186,7 +204,6 @@ if (!$result) {
     <div class="adspace-container">
         <?php if (mysqli_num_rows($result) > 0): ?>
             <?php while ($ad = mysqli_fetch_assoc($result)):
-                // Якщо користувач зареєстрований, робимо картку посиланням на редагування
                 $cardTag = ($role === 'registered') ? 'a href="edit_adspace.php?id=' . $ad['adspace_id'] . '"' : 'div';
             ?>
                 <<?= $cardTag ?> class="adspace-card">

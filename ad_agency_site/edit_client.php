@@ -14,41 +14,9 @@ if (!$client_id) {
     die("Не вказано ID клієнта.");
 }
 
-// Оновлення
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update'])) {
-    $name = $_POST['client_name'];
-    $person = $_POST['contact_person'];
-    $email = $_POST['client_email'];
-    $phone = $_POST['client_phone'];
-    $photo = $_POST['photo'];
+$error = '';
 
-    $sql = "UPDATE Clients SET client_name=?, contact_person=?, client_email=?, client_phone=?, photo=? WHERE client_id=?";
-    $stmt = $connection->prepare($sql);
-    $stmt->bind_param("sssssi", $name, $person, $email, $phone, $photo, $client_id);
-
-    if ($stmt->execute()) {
-        header("Location: clients.php");
-        exit;
-    } else {
-        echo "Помилка оновлення: " . $stmt->error;
-    }
-}
-
-// Видалення
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete'])) {
-    $sql = "DELETE FROM Clients WHERE client_id=?";
-    $stmt = $connection->prepare($sql);
-    $stmt->bind_param("i", $client_id);
-
-    if ($stmt->execute()) {
-        header("Location: clients.php");
-        exit;
-    } else {
-        echo "Помилка видалення: " . $stmt->error;
-    }
-}
-
-// Отримати дані клієнта
+// Отримати дані клієнта для відображення форми (перед обробкою POST)
 $stmt = $connection->prepare("SELECT * FROM Clients WHERE client_id=?");
 $stmt->bind_param("i", $client_id);
 $stmt->execute();
@@ -57,6 +25,73 @@ $client = $result->fetch_assoc();
 
 if (!$client) {
     die("Клієнта не знайдено.");
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    if (isset($_POST['delete'])) {
+        $sql = "DELETE FROM Clients WHERE client_id=?";
+        $stmt = $connection->prepare($sql);
+        $stmt->bind_param("i", $client_id);
+
+        if ($stmt->execute()) {
+            header("Location: clients.php");
+            exit;
+        } else {
+            $error = "Помилка видалення: " . $stmt->error;
+        }
+    }
+
+    if (isset($_POST['update'])) {
+        $name = trim($_POST['client_name'] ?? '');
+        $person = trim($_POST['contact_person'] ?? '');
+        $email = trim($_POST['client_email'] ?? '');
+        $phone = trim($_POST['client_phone'] ?? '');
+
+        if ($name === '' || $person === '' || $email === '' || $phone === '') {
+            $error = "Будь ласка, заповніть усі обов’язкові поля.";
+        } else {
+            $photo = $client['photo'];
+
+            if (isset($_FILES['photo_file']) && $_FILES['photo_file']['error'] !== UPLOAD_ERR_NO_FILE) {
+                $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+                $fileTmpPath = $_FILES['photo_file']['tmp_name'];
+                $fileType = mime_content_type($fileTmpPath);
+
+                if (!in_array($fileType, $allowedTypes)) {
+                    $error = "Неприпустимий формат файлу. Дозволені: JPG, PNG, GIF.";
+                } else {
+                    $uploadDir = __DIR__ . '/uploads/';
+                    if (!is_dir($uploadDir)) {
+                        mkdir($uploadDir, 0755, true);
+                    }
+
+                    $fileName = basename($_FILES['photo_file']['name']);
+                    $fileName = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', $fileName);
+                    $newFilePath = $uploadDir . time() . '_' . $fileName;
+
+                    if (move_uploaded_file($fileTmpPath, $newFilePath)) {
+                        $photo = 'uploads/' . basename($newFilePath);
+                    } else {
+                        $error = "Помилка завантаження файлу.";
+                    }
+                }
+            }
+
+            if ($error === '') {
+                $sql = "UPDATE Clients SET client_name=?, contact_person=?, client_email=?, client_phone=?, photo=? WHERE client_id=?";
+                $stmt = $connection->prepare($sql);
+                $stmt->bind_param("sssssi", $name, $person, $email, $phone, $photo, $client_id);
+
+                if ($stmt->execute()) {
+                    header("Location: clients.php");
+                    exit;
+                } else {
+                    $error = "Помилка оновлення: " . $stmt->error;
+                }
+            }
+        }
+    }
 }
 ?>
 
@@ -72,7 +107,6 @@ if (!$client) {
             background-color: #f5f7fa;
             margin: 0;
             padding: 0 20px 60px;
-            /* місце для footer */
             color: #333;
             display: flex;
             flex-direction: column;
@@ -111,7 +145,8 @@ if (!$client) {
         }
 
         form input[type="text"],
-        form input[type="email"] {
+        form input[type="email"],
+        form input[type="file"] {
             width: 100%;
             padding: 10px 12px;
             margin-bottom: 20px;
@@ -120,10 +155,12 @@ if (!$client) {
             font-size: 15px;
             transition: border-color 0.3s ease;
             box-sizing: border-box;
+            font-family: inherit;
         }
 
         form input[type="text"]:focus,
-        form input[type="email"]:focus {
+        form input[type="email"]:focus,
+        form input[type="file"]:focus {
             border-color: #007acc;
             outline: none;
         }
@@ -181,14 +218,19 @@ if (!$client) {
             background-color: #005fa3;
         }
 
-        @media (max-width: 600px) {
-            .edit-container {
-                padding: 20px 20px;
-            }
+        .error-message {
+            color: red;
+            font-weight: 600;
+            margin-bottom: 15px;
+            text-align: center;
+        }
 
-            button {
-                font-size: 14px;
-            }
+        img.current-photo {
+            max-width: 100%;
+            height: auto;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            display: block;
         }
     </style>
 </head>
@@ -200,26 +242,36 @@ if (!$client) {
     <main>
         <div class="edit-container">
             <h1>Редагування клієнта</h1>
-            <form method="post">
+
+            <?php if ($error): ?>
+                <div class="error-message"><?= htmlspecialchars($error) ?></div>
+            <?php endif; ?>
+
+            <form method="post" enctype="multipart/form-data">
                 <label for="client_name">Назва клієнта:</label>
-                <input id="client_name" type="text" name="client_name" value="<?= htmlspecialchars($client['client_name']) ?>" required>
+                <input id="client_name" type="text" name="client_name" value="<?= htmlspecialchars($_POST['client_name'] ?? $client['client_name']) ?>" required>
 
                 <label for="contact_person">Контактна особа:</label>
-                <input id="contact_person" type="text" name="contact_person" value="<?= htmlspecialchars($client['contact_person']) ?>" required>
+                <input id="contact_person" type="text" name="contact_person" value="<?= htmlspecialchars($_POST['contact_person'] ?? $client['contact_person']) ?>" required>
 
                 <label for="client_email">Email:</label>
-                <input id="client_email" type="email" name="client_email" value="<?= htmlspecialchars($client['client_email']) ?>" required>
+                <input id="client_email" type="email" name="client_email" value="<?= htmlspecialchars($_POST['client_email'] ?? $client['client_email']) ?>" required>
 
                 <label for="client_phone">Телефон:</label>
-                <input id="client_phone" type="text" name="client_phone" value="<?= htmlspecialchars($client['client_phone']) ?>" required>
+                <input id="client_phone" type="text" name="client_phone" value="<?= htmlspecialchars($_POST['client_phone'] ?? $client['client_phone']) ?>" required>
 
-                <label for="photo">Фото (URL):</label>
-                <input id="photo" type="text" name="photo" value="<?= htmlspecialchars($client['photo']) ?>">
+                <label for="photo_file">Фото (файл):</label>
+                <input id="photo_file" type="file" name="photo_file" accept="image/*">
+
+                <?php if (!empty($client['photo'])): ?>
+                    <p>Поточне фото:</p>
+                    <img class="current-photo" src="<?= htmlspecialchars($client['photo']) ?>" alt="Поточне фото клієнта" />
+                <?php endif; ?>
 
                 <div class="buttons">
                     <button type="submit" name="update">Оновити</button>
-                    <button type="submit" name="delete" onclick="return confirm('Ви впевнені, що хочете видалити цього клієнта?')">Видалити</button>
-                    <a href="clients.php" class="back">Назад</a>
+                    <button type="submit" name="delete" onclick="return confirm('Ви впевнені, що хочете видалити цього клієнта?');">Видалити</button>
+                    <a href="clients.php" class="back" style="flex:1;">Назад</a>
                 </div>
             </form>
         </div>

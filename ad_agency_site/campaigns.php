@@ -4,7 +4,7 @@ session_start();
 $role = $_SESSION['user_role'] ?? 'guest';
 $connection = getConnection($role);
 
-$searchTerm = $_GET['search'] ?? '';
+$searchTerm = trim($_GET['search'] ?? '');
 $sql = "SELECT Campaigns.*, Clients.client_name 
         FROM Campaigns 
         JOIN Clients ON Campaigns.client_id = Clients.client_id";
@@ -168,12 +168,6 @@ if (!$result) {
         .search-btn:hover,
         .add-btn:hover {
             background-color: #005f99;
-        }
-
-        @media (max-width: 600px) {
-            .campaign-card {
-                width: 90%;
-            }
         }
     </style>
 </head>

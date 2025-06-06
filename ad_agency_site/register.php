@@ -1,5 +1,5 @@
 <?php
-require_once 'connection.php'; // Підключення до бази (під користувачем guest)
+require_once 'connection.php';
 
 $connection = getConnection('guest');
 
@@ -20,6 +20,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if (mysqli_num_rows($result) > 0) {
         $error = "Користувач з такою електронною поштою вже існує.";
+    } else if ($first_name === '' || $last_name === '' || $email === '' || $password === '') {
+        $error = "Поля не можуть бути порожніми.";
     } else {
         $insert_sql = "INSERT INTO Users (first_name, last_name, user_email, password) VALUES (?, ?, ?, ?)";
         $stmt = mysqli_prepare($connection, $insert_sql);
@@ -153,13 +155,6 @@ mysqli_close($connection);
       }
       .back-btn:hover {
         background-color: #c0c0c0;
-      }
-
-      @media (max-width: 480px) {
-        .container {
-          padding: 25px 20px;
-          width: 90%;
-        }
       }
     </style>
 </head>

@@ -4,10 +4,8 @@ session_start();
 $role = $_SESSION['user_role'] ?? 'guest';
 $connection = getConnection($role);
 
-// Перевіряємо, чи користувач авторизований
 $user_id = $_SESSION['user_id'] ?? null;
 
-// Обробка додавання відгуку
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['review_content']) && $user_id !== null) {
     $review_content = trim($_POST['review_content']);
     if ($review_content !== '') {
@@ -17,7 +15,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['review_content']) && 
         if (!mysqli_query($connection, $insert_sql)) {
             $error_message = "Помилка додавання відгуку: " . mysqli_error($connection);
         } else {
-            // Після успішного додавання перенаправляємо на ту ж сторінку, щоб уникнути повторної відправки форми
             header("Location: reviews.php");
             exit();
         }
@@ -26,9 +23,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['review_content']) && 
     }
 }
 
-$searchTerm = $_GET['search'] ?? '';
+$searchTerm = trim($_GET['search'] ?? '');
 
-// Отримання відгуків із іменами користувачів
 $sql = "SELECT r.review_id, r.review_content, u.first_name, u.last_name 
         FROM Reviews r
         JOIN Users u ON r.user_id = u.user_id";

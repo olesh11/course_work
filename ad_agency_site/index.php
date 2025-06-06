@@ -250,7 +250,6 @@ if (!empty($_SESSION['first_name'])) {
     </div>
 
     <script>
-      // Автоматично приховати повідомлення через 5 секунд (за бажанням)
       setTimeout(function() {
         var popup = document.getElementById('welcomePopup');
         if (popup) popup.style.display = 'none';
@@ -316,8 +315,8 @@ if (!empty($_SESSION['first_name'])) {
       </div>
       <div class="footer-section contacts">
         <h3>Контакти</h3>
-        <p>Телефон: +38 096 730 5643</p>
-        <p>Email: romanolesh2@gmail.com</p>
+        <p>Телефон: +38 096 123 4567</p>
+        <p>Email: romanolesh@gmail.com</p>
         <p>Адреса: вул. Князя Романа, 1, Львів, Україна</p>
       </div>
       <div class="footer-section social">

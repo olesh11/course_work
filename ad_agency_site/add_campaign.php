@@ -3,8 +3,8 @@ require_once 'connection.php';
 session_start();
 
 $connection = getConnection($_SESSION['user_role'] ?? 'guest');
+$error_message = '';
 
-// Отримуємо список клієнтів для select
 $clients = [];
 $resultClients = $connection->query("SELECT client_id, client_name FROM Clients ORDER BY client_name");
 if ($resultClients) {
@@ -14,33 +14,65 @@ if ($resultClients) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $client_name = $_POST['client_name'] ?? '';
-    $campaign_name = $_POST['campaign_name'] ?? '';
-    $campaign_description = $_POST['campaign_description'] ?? '';
-    $photo = $_POST['photo'] ?? '';
+    $client_name = trim($_POST['client_name'] ?? '');
+    $campaign_name = trim($_POST['campaign_name'] ?? '');
+    $campaign_description = trim($_POST['campaign_description'] ?? '');
+    $photo_path = '';
 
-    // Спочатку знайдемо client_id за client_name
-    $stmtClient = $connection->prepare("SELECT client_id FROM Clients WHERE client_name = ?");
-    $stmtClient->bind_param("s", $client_name);
-    $stmtClient->execute();
-    $stmtClient->bind_result($client_id);
-    if ($stmtClient->fetch()) {
-        $stmtClient->close();
-
-        // Вставляємо кампанію з client_id
-        $stmtInsert = $connection->prepare("INSERT INTO Campaigns (client_id, campaign_name, campaign_description, photo) VALUES (?, ?, ?, ?)");
-        $stmtInsert->bind_param("isss", $client_id, $campaign_name, $campaign_description, $photo);
-
-        if ($stmtInsert->execute()) {
-            header('Location: campaigns.php');
-            exit;
-        } else {
-            $error = "Помилка при додаванні кампанії: " . $stmtInsert->error;
-        }
-        $stmtInsert->close();
+    if ($client_name === '' && $campaign_name === '' && $campaign_description === '' && empty($_FILES['photo']['name'])) {
+        $error_message = "Усі поля не можуть бути порожніми або заповненими лише пробілами.";
     } else {
-        $error = "Клієнта з таким ім'ям не знайдено.";
-        $stmtClient->close();
+        // Обробка завантаження фото
+        if (!empty($_FILES['photo']['name']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
+            $upload_dir = 'uploads/';
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0755, true);
+            }
+
+            $tmp_name = $_FILES['photo']['tmp_name'];
+            $filename = basename($_FILES['photo']['name']);
+            $ext = pathinfo($filename, PATHINFO_EXTENSION);
+            $new_filename = uniqid('photo_', true) . '.' . $ext;
+            $target_path = $upload_dir . $new_filename;
+
+            if (move_uploaded_file($tmp_name, $target_path)) {
+                $photo_path = $target_path;
+            } else {
+                $error_message = "Не вдалося завантажити файл.";
+            }
+        }
+
+        if (empty($error_message)) {
+            $stmtClient = $connection->prepare("SELECT client_id FROM Clients WHERE client_name = ?");
+            if ($stmtClient) {
+                $stmtClient->bind_param("s", $client_name);
+                $stmtClient->execute();
+                $stmtClient->bind_result($client_id);
+
+                if ($stmtClient->fetch()) {
+                    $stmtClient->close();
+
+                    $stmtInsert = $connection->prepare("INSERT INTO Campaigns (client_id, campaign_name, campaign_description, photo) VALUES (?, ?, ?, ?)");
+                    if ($stmtInsert) {
+                        $stmtInsert->bind_param("isss", $client_id, $campaign_name, $campaign_description, $photo_path);
+                        if ($stmtInsert->execute()) {
+                            header('Location: campaigns.php');
+                            exit;
+                        } else {
+                            $error_message = "Помилка при додаванні кампанії: " . $stmtInsert->error;
+                        }
+                        $stmtInsert->close();
+                    } else {
+                        $error_message = "Помилка підготовки запиту вставки: " . $connection->error;
+                    }
+                } else {
+                    $error_message = "Клієнта з таким ім'ям не знайдено.";
+                    $stmtClient->close();
+                }
+            } else {
+                $error_message = "Помилка підготовки запиту пошуку клієнта: " . $connection->error;
+            }
+        }
     }
 }
 ?>
@@ -96,7 +128,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         input[type="text"],
         textarea,
-        select {
+        select,
+        input[type="file"] {
             width: 100%;
             padding: 10px 12px;
             font-size: 14px;
@@ -107,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             resize: vertical;
         }
 
-        input[type="text"]:focus,
+        input:focus,
         textarea:focus,
         select:focus {
             border-color: #007acc;
@@ -148,29 +181,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background-color: #c0c0c0;
         }
 
-        .error {
-            color: red;
-            margin-bottom: 15px;
+        .error-message {
+            background-color: #ffe5e5;
+            color: #cc0000;
+            padding: 10px 14px;
+            border: 1.5px solid #ff9999;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
             text-align: center;
         }
     </style>
 </head>
 
 <body>
-
     <?php include 'header.html'; ?>
 
     <main>
-        <form method="post" novalidate>
+        <form method="post" enctype="multipart/form-data" novalidate>
             <h1>Додати нову рекламну кампанію</h1>
 
-            <?php if (!empty($error)): ?>
-                <div class="error"><?= htmlspecialchars($error) ?></div>
+            <?php if (!empty($error_message)): ?>
+                <div class="error-message"><?= htmlspecialchars($error_message) ?></div>
             <?php endif; ?>
 
             <label>Виберіть клієнта:
                 <select name="client_name" required>
-                    <option value="" disabled selected>Оберіть клієнта</option>
+                    <option value="" disabled <?= !isset($_POST['client_name']) ? 'selected' : '' ?>>Оберіть клієнта</option>
                     <?php foreach ($clients as $client): ?>
                         <option value="<?= htmlspecialchars($client['client_name']) ?>"
                             <?= (isset($_POST['client_name']) && $_POST['client_name'] === $client['client_name']) ? 'selected' : '' ?>>
@@ -185,21 +222,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </label>
 
             <label>Опис кампанії:
-                <textarea name="campaign_description" rows="5" required><?= htmlspecialchars($_POST['campaign_description'] ?? '') ?></textarea>
+                <textarea name="campaign_description" rows="5"><?= htmlspecialchars($_POST['campaign_description'] ?? '') ?></textarea>
             </label>
 
-            <label>Фото (URL):
-                <input type="text" name="photo" value="<?= htmlspecialchars($_POST['photo'] ?? '') ?>">
+            <label>Фото:
+                <input type="file" name="photo" accept="image/*">
             </label>
 
             <button type="submit">Додати</button>
-
             <a href="campaigns.php" class="back-btn">Повернутися назад</a>
         </form>
     </main>
 
     <?php include 'footer.html'; ?>
-
 </body>
 
 </html>

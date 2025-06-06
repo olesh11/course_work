@@ -2,7 +2,6 @@
 require_once 'connection.php';
 session_start();
 
-// Перевірка ролі та авторизації
 if (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'registered') {
     die("Доступ заборонено.");
 }
@@ -16,7 +15,8 @@ if (!$booking_id) {
     die("Не вказано ID бронювання.");
 }
 
-// Вибираємо бронювання користувача
+$error = '';
+
 $stmt = $connection->prepare("SELECT booking_date, message, adspace_id FROM Bookings WHERE booking_id = ? AND user_id = ?");
 $stmt->bind_param("ii", $booking_id, $user_id);
 $stmt->execute();
@@ -28,7 +28,6 @@ if ($result->num_rows === 0) {
 
 $booking = $result->fetch_assoc();
 
-// Вибираємо всі записи з Adspace для списку
 $adspace_result = $connection->query("SELECT adspace_id, ad_type FROM Adspace ORDER BY ad_type ASC");
 $adspaces = [];
 if ($adspace_result) {
@@ -37,39 +36,40 @@ if ($adspace_result) {
     }
 }
 
-// Оновлення бронювання
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update'])) {
-    $booking_date = trim($_POST['booking_date']);
-    $message = trim($_POST['message']);
-    $adspace_id = intval($_POST['adspace_id']);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    if ($booking_date === '' || $adspace_id <= 0) {
-        $error = "Дата бронювання та тип реклами не можуть бути порожніми.";
-    } else {
-        $update_sql = "UPDATE Bookings SET booking_date = ?, message = ?, adspace_id = ? WHERE booking_id = ? AND user_id = ?";
-        $stmt = $connection->prepare($update_sql);
-        $stmt->bind_param("ssiii", $booking_date, $message, $adspace_id, $booking_id, $user_id);
+    if (isset($_POST['delete'])) {
+        $delete_sql = "DELETE FROM Bookings WHERE booking_id = ? AND user_id = ?";
+        $stmt = $connection->prepare($delete_sql);
+        $stmt->bind_param("ii", $booking_id, $user_id);
 
         if ($stmt->execute()) {
             header("Location: profile.php");
-            exit();
+            exit;
         } else {
-            $error = "Помилка оновлення: " . $stmt->error;
+            $error = "Помилка видалення: " . $stmt->error;
         }
     }
-}
 
-// Видалення бронювання
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete'])) {
-    $delete_sql = "DELETE FROM Bookings WHERE booking_id = ? AND user_id = ?";
-    $stmt = $connection->prepare($delete_sql);
-    $stmt->bind_param("ii", $booking_id, $user_id);
+    if (isset($_POST['update'])) {
+        $booking_date = trim($_POST['booking_date'] ?? '');
+        $message = trim($_POST['message'] ?? '');
+        $adspace_id = intval($_POST['adspace_id'] ?? 0);
 
-    if ($stmt->execute()) {
-        header("Location: profile.php");
-        exit();
-    } else {
-        $error = "Помилка видалення: " . $stmt->error;
+        if ($booking_date === '' || $adspace_id <= 0 || $message === '') {
+            $error = "Будь ласка, заповніть усі обов’язкові поля: дата бронювання та тип реклами.";
+        } else {
+            $update_sql = "UPDATE Bookings SET booking_date = ?, message = ?, adspace_id = ? WHERE booking_id = ? AND user_id = ?";
+            $stmt = $connection->prepare($update_sql);
+            $stmt->bind_param("ssiii", $booking_date, $message, $adspace_id, $booking_id, $user_id);
+
+            if ($stmt->execute()) {
+                header("Location: profile.php");
+                exit;
+            } else {
+                $error = "Помилка оновлення: " . $stmt->error;
+            }
+        }
     }
 }
 ?>
@@ -81,7 +81,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete'])) {
     <meta charset="UTF-8" />
     <title>Редагування бронювання</title>
     <style>
-        /* Твій CSS зі стилями, можна залишити як є */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f5f7fa;
@@ -211,16 +210,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete'])) {
 
         <form method="post">
             <label for="booking_date">Дата бронювання:</label>
-            <input type="date" id="booking_date" name="booking_date" required value="<?= htmlspecialchars($booking['booking_date']) ?>">
+            <input type="date" id="booking_date" name="booking_date" required value="<?= htmlspecialchars($_POST['booking_date'] ?? $booking['booking_date']) ?>">
 
             <label for="message">Повідомлення:</label>
-            <textarea id="message" name="message"><?= htmlspecialchars($booking['message']) ?></textarea>
+            <textarea id="message" name="message"><?= htmlspecialchars($_POST['message'] ?? $booking['message']) ?></textarea>
 
             <label for="adspace_id">Тип реклами:</label>
             <select id="adspace_id" name="adspace_id" required>
                 <option value="">-- Оберіть тип реклами --</option>
                 <?php foreach ($adspaces as $ad): ?>
-                    <option value="<?= $ad['adspace_id'] ?>" <?= ($ad['adspace_id'] == $booking['adspace_id']) ? 'selected' : '' ?>>
+                    <option value="<?= $ad['adspace_id'] ?>"
+                        <?= (isset($_POST['adspace_id']) ? ($_POST['adspace_id'] == $ad['adspace_id']) : ($booking['adspace_id'] == $ad['adspace_id'])) ? 'selected' : '' ?>>
                         <?= htmlspecialchars($ad['ad_type']) ?>
                     </option>
                 <?php endforeach; ?>

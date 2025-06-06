@@ -14,40 +14,8 @@ if (!$campaign_id) {
     die("Не вказано ID кампанії.");
 }
 
-// Оновлення
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update'])) {
-    $client_id = $_POST['client_id'];
-    $name = $_POST['campaign_name'];
-    $description = $_POST['campaign_description'];
-    $photo = $_POST['photo'];
+$error = '';
 
-    $sql = "UPDATE Campaigns SET client_id=?, campaign_name=?, campaign_description=?, photo=? WHERE campaign_id=?";
-    $stmt = $connection->prepare($sql);
-    $stmt->bind_param("isssi", $client_id, $name, $description, $photo, $campaign_id);
-
-    if ($stmt->execute()) {
-        header("Location: campaigns.php");
-        exit;
-    } else {
-        echo "Помилка оновлення: " . $stmt->error;
-    }
-}
-
-// Видалення
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete'])) {
-    $sql = "DELETE FROM Campaigns WHERE campaign_id=?";
-    $stmt = $connection->prepare($sql);
-    $stmt->bind_param("i", $campaign_id);
-
-    if ($stmt->execute()) {
-        header("Location: campaigns.php");
-        exit;
-    } else {
-        echo "Помилка видалення: " . $stmt->error;
-    }
-}
-
-// Отримати дані кампанії
 $stmt = $connection->prepare("SELECT * FROM Campaigns WHERE campaign_id=?");
 $stmt->bind_param("i", $campaign_id);
 $stmt->execute();
@@ -58,11 +26,76 @@ if (!$campaign) {
     die("Кампанію не знайдено.");
 }
 
-// Для випадаючого списку клієнтів
 $clients_result = $connection->query("SELECT client_id, client_name FROM Clients ORDER BY client_name");
 $clients = [];
 while ($row = $clients_result->fetch_assoc()) {
     $clients[] = $row;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    if (isset($_POST['delete'])) {
+        $sql = "DELETE FROM Campaigns WHERE campaign_id=?";
+        $stmt = $connection->prepare($sql);
+        $stmt->bind_param("i", $campaign_id);
+
+        if ($stmt->execute()) {
+            header("Location: campaigns.php");
+            exit;
+        } else {
+            $error = "Помилка видалення: " . $stmt->error;
+        }
+    }
+
+    if (isset($_POST['update'])) {
+        $client_id = trim($_POST['client_id'] ?? '');
+        $name = trim($_POST['campaign_name'] ?? '');
+        $description = trim($_POST['campaign_description'] ?? '');
+
+        if ($client_id === '' || $name === '') {
+            $error = "Будь ласка, заповніть усі обов’язкові поля.";
+        } else {
+            $photo = $campaign['photo'];
+
+            if (isset($_FILES['photo_file']) && $_FILES['photo_file']['error'] !== UPLOAD_ERR_NO_FILE) {
+                $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+                $fileTmpPath = $_FILES['photo_file']['tmp_name'];
+                $fileType = mime_content_type($fileTmpPath);
+
+                if (!in_array($fileType, $allowedTypes)) {
+                    $error = "Неприпустимий формат файлу. Дозволені: JPG, PNG, GIF.";
+                } else {
+                    $uploadDir = __DIR__ . '/uploads/';
+                    if (!is_dir($uploadDir)) {
+                        mkdir($uploadDir, 0755, true);
+                    }
+
+                    $fileName = basename($_FILES['photo_file']['name']);
+                    $fileName = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', $fileName);
+                    $newFilePath = $uploadDir . time() . '_' . $fileName;
+
+                    if (move_uploaded_file($fileTmpPath, $newFilePath)) {
+                        $photo = 'uploads/' . basename($newFilePath);
+                    } else {
+                        $error = "Помилка завантаження файлу.";
+                    }
+                }
+            }
+
+            if ($error === '') {
+                $sql = "UPDATE Campaigns SET client_id=?, campaign_name=?, campaign_description=?, photo=? WHERE campaign_id=?";
+                $stmt = $connection->prepare($sql);
+                $stmt->bind_param("isssi", $client_id, $name, $description, $photo, $campaign_id);
+
+                if ($stmt->execute()) {
+                    header("Location: campaigns.php");
+                    exit;
+                } else {
+                    $error = "Помилка оновлення: " . $stmt->error;
+                }
+            }
+        }
+    }
 }
 ?>
 
@@ -194,14 +227,19 @@ while ($row = $clients_result->fetch_assoc()) {
             background-color: #005fa3;
         }
 
-        @media (max-width: 600px) {
-            .edit-container {
-                padding: 20px 20px;
-            }
+        .error-message {
+            color: red;
+            font-weight: 600;
+            margin-bottom: 15px;
+            text-align: center;
+        }
 
-            button {
-                font-size: 14px;
-            }
+        img.current-photo {
+            max-width: 100%;
+            height: auto;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            display: block;
         }
     </style>
 </head>
@@ -213,28 +251,38 @@ while ($row = $clients_result->fetch_assoc()) {
     <main>
         <div class="edit-container">
             <h1>Редагування кампанії</h1>
-            <form method="post">
+
+            <?php if ($error): ?>
+                <div class="error-message"><?= htmlspecialchars($error) ?></div>
+            <?php endif; ?>
+
+            <form method="post" enctype="multipart/form-data">
                 <label for="client_id">Клієнт:</label>
                 <select id="client_id" name="client_id" required>
                     <option value="">-- Виберіть клієнта --</option>
                     <?php foreach ($clients as $client_option): ?>
-                        <option value="<?= $client_option['client_id'] ?>" <?= ($client_option['client_id'] == $campaign['client_id']) ? 'selected' : '' ?>>
+                        <option value="<?= $client_option['client_id'] ?>" <?= ($client_option['client_id'] == ($_POST['client_id'] ?? $campaign['client_id'])) ? 'selected' : '' ?>>
                             <?= htmlspecialchars($client_option['client_name']) ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
 
                 <label for="campaign_name">Назва кампанії:</label>
-                <input id="campaign_name" type="text" name="campaign_name" value="<?= htmlspecialchars($campaign['campaign_name']) ?>" required>
+                <input id="campaign_name" type="text" name="campaign_name" value="<?= htmlspecialchars($_POST['campaign_name'] ?? $campaign['campaign_name']) ?>" required>
 
                 <label for="campaign_description">Опис кампанії:</label>
-                <textarea id="campaign_description" name="campaign_description"><?= htmlspecialchars($campaign['campaign_description']) ?></textarea>
+                <textarea id="campaign_description" name="campaign_description"><?= htmlspecialchars($_POST['campaign_description'] ?? $campaign['campaign_description']) ?></textarea>
 
-                <label for="photo">Фото (URL):</label>
-                <input id="photo" type="text" name="photo" value="<?= htmlspecialchars($campaign['photo']) ?>">
+                <label for="photo_file">Фото (файл):</label>
+                <input id="photo_file" type="file" name="photo_file" accept="image/*">
+
+                <?php if ($campaign['photo']): ?>
+                    <p>Поточне фото:</p>
+                    <img class="current-photo" src="<?= htmlspecialchars($campaign['photo']) ?>" alt="Поточне фото кампанії" />
+                <?php endif; ?>
 
                 <div class="buttons">
-                    <button type="submit" name="update">Оновити</button>
+                    <button type="submit" name="update">Зберегти</button>
                     <button type="submit" name="delete" onclick="return confirm('Ви впевнені, що хочете видалити цю кампанію?')">Видалити</button>
                     <a href="campaigns.php" class="back">Назад</a>
                 </div>

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Хост: 127.0.0.1
--- Час створення: Трв 31 2025 р., 18:32
+-- Час створення: Чрв 06 2025 р., 12:57
 -- Версія сервера: 10.4.32-MariaDB
 -- Версія PHP: 8.2.12
 
@@ -40,13 +40,13 @@ CREATE TABLE `adspace` (
 --
 
 INSERT INTO `adspace` (`adspace_id`, `ad_type`, `ad_description`, `ad_price`, `photo`) VALUES
-(1, 'Діджитал борд', 'Яскравий LED-дисплей з можливістю динамічної зміни контенту', 5000.00, 'images/digital_board.jpg'),
-(2, 'Рекламний щит', 'Статичний білборд стандартного розміру 3х6 м', 3500.00, 'images/billboard.jpg'),
-(3, 'Суперсайти', 'Велика зовнішня реклама для автотрас і центрів міст', 8000.00, 'images/supersite.jpg'),
-(4, 'Сітілайти', 'Освітлені рекламні площини формату 1.2х1.8 м для пішоходів', 2500.00, 'images/citylight.jpg'),
-(5, 'Сітіборди', 'Сучасні білборди меншого розміру в міській зоні', 3000.00, 'images/cityboard.jpg'),
-(6, 'Зупинки громадського транспорту', 'Реклама на зупинках із великим пасажиропотоком', 4000.00, 'images/bus_stop.jpg'),
-(7, 'Колони', 'Реклама, розміщена на колонах і опорах у центрі міста', 2000.00, 'images/column.jpg');
+(1, 'Діджитал борд', 'Яскравий LED-дисплей з можливістю динамічної зміни контенту', 4950.00, 'uploads/1749150079_digital_board.jpg'),
+(2, 'Рекламний щит', 'Статичний білборд стандартного розміру 3х6 м', 8609.79, 'uploads/1749150277_billboard.jpg'),
+(3, 'Суперсайти', 'Велика зовнішня реклама для автотрас і центрів міст', 11479.72, 'images/supersite.jpg'),
+(4, 'Сітілайти', 'Освітлені рекламні площини формату 1.2х1.8 м для пішоходів', 3587.42, 'images/citylight.jpg'),
+(5, 'Сітіборди', 'Сучасні білборди меншого розміру в міській зоні', 4304.90, 'uploads/1749132062_cityboard.jpg'),
+(6, 'Зупинки громадського транспорту', 'Реклама на зупинках із великим пасажиропотоком', 4304.90, 'uploads/1749132081_bus_stop.jpg'),
+(7, 'Колони', 'Реклама, розміщена на колонах і опорах у центрі міста', 2869.93, 'uploads/1749132103_column.jpg');
 
 -- --------------------------------------------------------
 
@@ -67,7 +67,7 @@ CREATE TABLE `bookings` (
 --
 
 INSERT INTO `bookings` (`booking_id`, `user_id`, `adspace_id`, `booking_date`, `message`) VALUES
-(1, 1, 1, '2025-05-31', 'Testasdasdsad');
+(1, 1, 1, '2025-05-31', 'test');
 
 -- --------------------------------------------------------
 
@@ -247,43 +247,43 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT для таблиці `adspace`
 --
 ALTER TABLE `adspace`
-  MODIFY `adspace_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `adspace_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
 -- AUTO_INCREMENT для таблиці `bookings`
 --
 ALTER TABLE `bookings`
-  MODIFY `booking_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `booking_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT для таблиці `campaigns`
 --
 ALTER TABLE `campaigns`
-  MODIFY `campaign_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `campaign_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT для таблиці `clients`
 --
 ALTER TABLE `clients`
-  MODIFY `client_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `client_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
 
 --
 -- AUTO_INCREMENT для таблиці `employees`
 --
 ALTER TABLE `employees`
-  MODIFY `employee_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `employee_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT для таблиці `reviews`
 --
 ALTER TABLE `reviews`
-  MODIFY `review_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `review_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT для таблиці `users`
 --
 ALTER TABLE `users`
-  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- Обмеження зовнішнього ключа збережених таблиць

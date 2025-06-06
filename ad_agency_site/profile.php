@@ -12,14 +12,12 @@ $user_id = $_SESSION['user_id'];
 $error = "";
 $success = "";
 
-// Обробка форми оновлення профілю
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if (isset($_POST['update_profile'])) {
     $first_name = trim($_POST['first_name']);
     $last_name = trim($_POST['last_name']);
     $email = trim($_POST['email']);
 
-    // Перевірка унікальності email
     $check_sql = "SELECT user_id FROM Users WHERE user_email = ? AND user_id != ?";
     $stmt = mysqli_prepare($connection, $check_sql);
     mysqli_stmt_bind_param($stmt, "si", $email, $user_id);
@@ -28,6 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (mysqli_num_rows($result) > 0) {
       $error = "Цей email вже використовується іншим користувачем.";
+    } else if ($first_name === '' || $last_name === '' || $email === '') {
+        $error = "Поля не можуть бути порожніми.";
     } else {
       $update_sql = "UPDATE Users SET first_name = ?, last_name = ?, user_email = ? WHERE user_id = ?";
       $stmt = mysqli_prepare($connection, $update_sql);
@@ -45,7 +45,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     mysqli_stmt_close($stmt);
   }
 
-  // Видалення акаунта
   if (isset($_POST['delete_account'])) {
     $delete_sql = "DELETE FROM Users WHERE user_id = ?";
     $stmt = mysqli_prepare($connection, $delete_sql);
@@ -63,7 +62,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 }
 
-// Отримання даних користувача
 $user_sql = "SELECT first_name, last_name, user_email FROM Users WHERE user_id = ?";
 $stmt = mysqli_prepare($connection, $user_sql);
 mysqli_stmt_bind_param($stmt, "i", $user_id);
@@ -80,7 +78,6 @@ if ($user = mysqli_fetch_assoc($result)) {
 }
 mysqli_stmt_close($stmt);
 
-// Отримання відгуків користувача
 $reviews = [];
 $review_sql = "SELECT review_id, review_content FROM Reviews WHERE user_id = ?";
 $stmt = mysqli_prepare($connection, $review_sql);
@@ -92,7 +89,6 @@ while ($row = mysqli_fetch_assoc($result)) {
 }
 mysqli_stmt_close($stmt);
 
-// Отримання бронювань користувача з JOIN для ad_type
 $bookings = [];
 $booking_sql = "
   SELECT b.booking_id, b.booking_date, b.message, a.ad_type 
@@ -233,13 +229,6 @@ mysqli_close($connection);
       color: #e74c3c;
     }
 
-    @media (max-width: 520px) {
-      .container {
-        padding: 25px 20px;
-        width: 90%;
-      }
-    }
-
     .btn-back {
       display: inline-block;
       margin-top: 15px;
@@ -297,13 +286,6 @@ mysqli_close($connection);
       font-size: 16px;
       color: #333;
       white-space: pre-wrap;
-    }
-
-    .booking-card-link:hover .booking-card {
-      background-color: #f0f8ff;
-      /* світло-блакитний фон при наведенні */
-      cursor: pointer;
-      transition: background-color 0.3s ease;
     }
   </style>
 </head>
